@@ -1,0 +1,205 @@
+---
+title: "NYPD Shooting Incident Report"
+author: "Amrit Sanal"
+date: '2022-02-01'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Introduction
+
+This Data is a List of every shooting incident that occurred in NYC going back to 2006 through the end of the previous calendar year.This is a robust and extensive dataset that we will analyze to see if there are any patterns or noticeable trends within this data that will give us insights on shootings performed by the NYPD. 
+
+##Let's import the Dataset
+
+Lets begin by bringing in the dataset via a URL that links directly to the download of the CSV. We will start by importing the tidyverse library then bringing in the data. 
+
+```{r import, echo=TRUE}
+library(tidyverse)
+
+url_in <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+
+urls <- str_c(url_in)
+
+nypd_data <- read_csv(urls[1])
+
+```
+
+##Tidying up the data
+
+Now that the dataset has been imported, let's begin tidying up the data. The first thing I want to do is to remove all the zero or nonexistent values from the dataset. 
+
+After that, let's make sure that we are only going to be using the columns that we need for this analysis. This includes getting rid of inconsequential columns such as latitude and longitude, which have too granular of a bearing on shootings. The borough is a much better column to see if there's any geographical bearing to shooting incidence. 
+
+```{r tidy, echo=TRUE}
+
+sapply(nypd_data, function(x) sum(is.na(x)))
+
+
+nypd_data <- nypd_data %>% pivot_longer(cols = -c(INCIDENT_KEY, `BORO`, OCCUR_TIME, PRECINCT, JURISDICTION_CODE,LOCATION_DESC,STATISTICAL_MURDER_FLAG, PERP_AGE_GROUP, PERP_SEX,PERP_RACE, VIC_AGE_GROUP,VIC_SEX, VIC_RACE, X_COORD_CD, Y_COORD_CD, Latitude, Longitude, Lon_Lat),
+names_to = "OCCUR_DATE", 
+values_to = "Date") %>%
+select(-c(INCIDENT_KEY, OCCUR_TIME, JURISDICTION_CODE,LOCATION_DESC,PERP_AGE_GROUP, PERP_SEX, PERP_RACE, X_COORD_CD, Y_COORD_CD, Latitude, Longitude, Lon_Lat))
+
+nypd_data
+
+```
+
+It is also worth looking at a summary of this data to see if there are any noticeable statistical anomalies. 
+```{r summary, echo=TRUE}
+
+summary(nypd_data)
+
+```
+
+From the initial look, there don't seem to be any statistical anomalies that are worth a second look. 
+
+
+##Analysis and Model
+
+Now that our data is tidied up, I want to look more closely at how the racial impact of these shootings, and I want to compare it to the boroughs to see if there is any correlation between these variables. 
+
+First, I want to separate these values into a separate dataframe. 
+
+```{r dataframe, echo = TRUE}
+
+race_borough_freq <- table(nypd_data$VIC_RACE, nypd_data$BORO)
+race_borough_freq_dataframe <- as.data.frame(race_borough_freq)
+
+race_borough_freq_dataframe
+
+```
+
+Immediately from seeing this, we can see that there is a massive discrepancy between all of the races and shooting frequency. I will now split the dataframes into each borough and then create a visualization for each borough and the frequency at which shootings occur in each borough. As an example, I will show what the data for one borough looks like 
+
+```{r split_calculate, echo = TRUE}
+
+race_borough_freq_dataframe <- split(race_borough_freq_dataframe, f = race_borough_freq_dataframe$Var2)
+
+bronx_data <- race_borough_freq_dataframe$BRONX
+bronx_data$Percent <- round((bronx_data$Freq / sum(bronx_data$Freq)*100),2)
+
+brooklyn_data <- race_borough_freq_dataframe$BROOKLYN
+brooklyn_data$Percent <- round((brooklyn_data$Freq / sum(brooklyn_data$Freq)*100),2)
+
+
+staten_data <- race_borough_freq_dataframe$`STATEN ISLAND`
+staten_data$Percent <- round((staten_data$Freq / sum(staten_data$Freq)*100),2)
+
+                                                        
+manhattan_data <- race_borough_freq_dataframe$MANHATTAN
+manhattan_data$Percent <- round((manhattan_data$Freq / sum(manhattan_data$Freq)*100),2)
+
+queens_data <- race_borough_freq_dataframe$QUEENS
+queens_data$Percent <- round((queens_data$Freq / sum(queens_data$Freq)*100),2)
+
+queens_data
+
+```
+
+Now lets look at some visualizations of this data for each borough to see if there are any correlations or discrepancies. 
+
+```{r visualizations, echo=TRUE}
+
+ggplot(queens_data, aes(x=Var1, y=Freq, fill=Var1)) + geom_bar(stat="identity",width = 0.5, position = position_dodge(width=2)) + scale_x_discrete(labels = function(x) str_wrap(x, width = 0))+
+theme(text = element_text(size=8),
+axis.text.x = element_text(angle=0, hjust=1)) +
+labs (title = "Queens Data on Shooting Percentages and Race",x="Victim Race", y= "Shooting Frequency", fill = "Victim Race")
+
+ggplot(manhattan_data, aes(x=Var1, y=Freq, fill=Var1)) + geom_bar(stat="identity",width = 0.5, position = position_dodge(width=2)) + scale_x_discrete(labels = function(x) str_wrap(x, width = 0))+
+theme(text = element_text(size=8),
+axis.text.x = element_text(angle=0, hjust=1)) +
+labs (title = "Manhattan Data on Shooting Percentages and Race",x="Victim Race", y= "Shooting Frequency", fill = "Victim Race")
+
+ggplot(bronx_data, aes(x=Var1, y=Freq, fill=Var1)) + geom_bar(stat="identity",width = 0.5, position = position_dodge(width=2)) + scale_x_discrete(labels = function(x) str_wrap(x, width = 0))+
+theme(text = element_text(size=8),
+axis.text.x = element_text(angle=0, hjust=1)) +
+labs (title = "Bronx Data on Shooting Percentages and Race",x="Victim Race", y= "Shooting Frequency", fill = "Victim Race")
+
+ggplot(brooklyn_data, aes(x=Var1, y=Freq, fill=Var1)) + geom_bar(stat="identity",width = 0.5, position = position_dodge(width=2)) + scale_x_discrete(labels = function(x) str_wrap(x, width = 0))+
+theme(text = element_text(size=8),
+axis.text.x = element_text(angle=0, hjust=1)) +
+labs (title = "Brooklyn Data on Shooting Percentages and Race",x="Victim Race", y= "Shooting Frequency", fill = "Victim Race")
+
+ggplot(staten_data, aes(x=Var1, y=Freq, fill=Var1)) + geom_bar(stat="identity",width = 0.5, position = position_dodge(width=2)) + scale_x_discrete(labels = function(x) str_wrap(x, width = 0))+
+theme(text = element_text(size=8),
+axis.text.x = element_text(angle=0, hjust=1)) +
+labs (title = "Staten Data on Shooting Percentages and Race",x="Victim Race", y= "Shooting Frequency", fill = "Victim Race")
+
+
+```
+
+
+This data is showing a pretty clear high incidence rate between the shooting frequency of Black New Yorkers over every other race in every borough. This calls for further analysis. We need to add another variable to this equation. I will look at how high the shooting percentages have been for Black New Yorkers over the historical time frame this dataset allows for against the whole of New York. 
+
+```{r NYRace, echo = TRUE}
+
+B <- subset(nypd_data, VIC_RACE=='BLACK', select=c(VIC_RACE, Date))
+n <- 4
+B$YEAR <- substr(B$Date, nchar(B$Date) - n + 1, nchar(B$Date))
+B <- subset(B, select = -c(Date))
+RACE <- table(B$YEAR)
+RACE <- as.data.frame(RACE)
+
+ggplot(data=RACE, aes(x=Var1, y=Freq, group=1)) +
+    geom_line()+
+    geom_point()+
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+labs (title = "NYPD Shooting Frequency of Black New Yorkers from 2006 - 2020",x="Year", y= "Shooting Frequency")
+
+
+```
+
+
+
+
+Now that we can see frequency at which Black New Yorkers get shot by the NYPD historically, we can see an odd trend to the data, primarily that between 2017 and 2019, there were comparatively very few shootings of Black New Yorkers in contrast to the years before and seemingly the year after as well. 
+
+In addition to this analysis, we should also conduct a model of this data to see if we can predict the amount of Black Americans that will die as a part of a shooting. 
+```{r model, echo=TRUE}
+black_data <- nypd_data[nypd_data$VIC_RACE == "BLACK", ]
+
+X <- subset(black_data, STATISTICAL_MURDER_FLAG == 'TRUE', select=c(STATISTICAL_MURDER_FLAG, Date))
+
+n <- 4
+X$YEAR <- substr(X$Date, nchar(X$Date) - n + 1, nchar(X$Date))
+X <- subset(X, select = -c(Date))
+
+XRace <- table(X$YEAR)
+XRace <- as.data.frame(XRace)
+
+finalRace = merge(x = RACE, y = XRace, by = "Var1")
+
+
+mod <- lm(Freq.x ~ Freq.y, data=finalRace)
+
+summary(mod)
+
+finalRace_w_pred <- finalRace %>% mutate (pred = predict(mod))
+
+finalRace_w_pred %>% ggplot () +
+      geom_point(aes (x = Freq.x, y =Freq.y), color = "blue") +
+      geom_point (aes (x= Freq.x, y = pred), color = "red")+ 
+      labs (title = "Predicted murders of Black NY residents per Shooting",x="Shootings", y= "Murders")
+      
+
+```
+
+
+Results: The model does seem to relatively follow the correct slope as the real time data points, however, the actual  predicted data points estimate a far higher ratio of murders per shooting when race is considered. This discrepancy could exist because of the 2017-2019 data points making the data askew. While the predictive model is too vague to be indicative of anything, we have seen several visualizations that have been consistent across boroughs that Black people have been getting shot at incredibly higher rates by police than any other race. 
+
+
+##Potential Bias
+
+As we have learned in class, bias exists in everyone, and in data scientists, it is extremely important to denote our own biases and take that into account within our analyses. My personal biases regarding this analysis are that I am a very liberal leaning person of color. While I believe I did a fair analysis, I could have been subconsciously representing the data to prove an injustice, rather than prove a trend that exists in the data. 
+
+I think that with the dataset itself, there is very little bias. The provenance of this data comes from the city of New York and the only potential source of bias is that this data could not be the full dataset, that police have a motive to potentially hide shooting data, especially considering all the controversy behind police practices in recent times. 
+
+##Conclusion
+
+My conclusion for this data is that there is a much higher incidence of Black citizens of NYC being a victim of a shooting, but this doesn't necessarily equate to a higher murder rate. There is an unexplained lack of shootings of Black people between 2017 and 2019, and we see a big uptick in shootings in 2020. The predictive model could not find a strong correlation between shootings and how many shootings turn out to be murders, however it is worth noting that they were trending in the same direction. 
